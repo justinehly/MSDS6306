@@ -1,0 +1,161 @@
+---
+title: "6306 FLS Unit 6"
+author: "Justin Ehly"
+date: "9/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+call1 = "https://public.opendatasoft.com/api/records/1.0/search/?dataset=titanic-passengers&rows=2000&facet=survived&facet=pclass&facet=sex&facet=age&facet=embarked"
+
+titanic_json <- jsonlite::fromJSON(call1, flatten = TRUE)
+
+titanic_df <- as.data.frame(titanic_json$records)
+names(titanic_df)
+titanic_df <- subset(titanic_df[,c(7, 9, 10, 11)])
+names(titanic_df) <- c("age","pclass","gender","survived") 
+
+# Checking for NAs in age column
+sorted_data <- arrange(titanic_df,age) # checking for NAs - found 177 NAs in the age column
+tail(sorted_data$age, 179)
+
+titanic_df <- na.omit(titanic_df) #remove NA rows
+
+
+##  Would I survive based on my age?
+
+df_justin <- data_frame(age = c(44,44,44), pclass= c(1,2,3))
+
+justin <- knn(data.frame(titanic_df[,1:2]), data.frame(df_justin[,1:2]),titanic_df$survived, prob = TRUE, k = 5)
+justin
+
+## Test passengers
+#build training and test sets
+set.seed(6) #makes reproducable, just an arbitrary number
+splitPerc = 0.70
+
+
+trainIndices = sample(1:dim(titanic_df)[1],round(splitPerc * dim(titanic_df)[1]))
+titanic_train = as.data.frame(titanic_df[trainIndices,])
+titanic_test = as.data.frame(titanic_df[-trainIndices,])
+
+titanic_train$survived = as.factor(titanic_train$survived)
+titanic_test$survived = as.factor(titanic_test$survived)
+
+
+#validate there are 70% in train and 30% in test
+dim(titanic_train)
+dim(titanic_test) 
+length(titanic_train$survived)
+
+classifications = knn(data.frame(titanic_train[,1:2]), data.frame(titanic_test[,1:2]), titanic_train$survived, prob = TRUE, k = 5)
+table(classifications,titanic_test$survived)
+confusionMatrix(table(classifications,titanic_test$survived))
+
+#broken down by gender
+
+titanic_men <- titanic_df %>% filter(gender == "male")
+
+classifications = knn(data.frame(titanic_train[,1:2]), data.frame(titanic_men[,1:2]), titanic_train$survived, prob = TRUE, k = 5)
+table(classifications,titanic_men$survived)
+confusionMatrix(table(classifications,titanic_men$survived))
+
+titanic_women <- titanic_df %>% filter(gender == "female")
+
+classifications = knn(data.frame(titanic_train[,1:2]), data.frame(titanic_women[,1:2]), titanic_train$survived, prob = TRUE, k = 5)
+table(classifications,titanic_women$survived)
+confusionMatrix(table(classifications,titanic_women$survived))
+
+
+## Loop for many k and one training / test partition
+accs = data.frame(accuracy = numeric(50), k = numeric(50))
+
+for(i in 1:50)
+{
+  classifications = knn(titanic_train[,c(1,2)],titanic_test[,c(1,2)],titanic_train$survived, prob = TRUE, k = i)
+  table(titanic_test$survived,classifications)
+  CM = confusionMatrix(table(titanic_test$survived,classifications))
+  accs$accuracy[i] = CM$overall[1]
+  accs$k[i] = i
+}
+
+plot(accs$k,accs$accuracy, type = "l", xlab = "k")
+which.max(accs$accuracy)
+max(accs$accuracy)
+
+```
+
+
+#Question 2
+
+```{r}
+
+#Use a 70 - 30 train/test split to use cross validation to
+#tune the hyperparameter k
+
+
+# Loop for many k and the average of many training / test partition
+
+set.seed(1)
+iterations = 500
+numks = 90
+splitPerc = .70
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+
+for(j in 1:iterations)
+{
+  trainIndices = sample(1:dim(iris)[1],round(splitPerc * dim(iris)[1]))
+  train = iris[trainIndices,]
+  test = iris[-trainIndices,]
+  for(i in 1:numks)
+  {
+    classifications = knn(train[,c(1,2)],test[,c(1,2)],train$Species, prob = TRUE, k = i)
+    table(classifications,test$Species)
+    CM = confusionMatrix(table(classifications,test$Species))
+    masterAcc[j,i] = CM$overall[1]
+  }
+  
+}
+
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+
+which.max(MeanAcc)
+max(MeanAcc)
+
+# FOR LIVE SESSION LEAVE 1 OUT KNN IRIS
+
+set.seed(1)
+iterations = 500
+numks = 90
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+
+for(j in 1:iterations)
+{
+  
+  for(i in 1:numks)
+  {
+    CM = confusionMatrix(table(iris[,5],knn.cv(iris[,c(1,2)],iris[,5],k = i)))
+    masterAcc[j,i] = CM$overall[1]
+    
+  }
+  
+}
+
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+
+which.max(MeanAcc)
+max(MeanAcc)
+
+```

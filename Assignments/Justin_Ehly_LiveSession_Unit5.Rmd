@@ -1,0 +1,188 @@
+---
+title: "DS 6306_Tuesday 630p_FLS 5"
+author: "Justin Ehly"
+date: "9/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Basketball
+
+```{r}
+PlayersBBall <- read.csv(file = 'C:/Users/justi/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 2/PlayersBBall.csv', 
+                         stringsAsFactors = FALSE,
+                         strip.white = TRUE,
+                         sep = ",") #stringsasfactors - makes sure we record the data as strings and not factors, strip.white removes any blank spaces in front of data in cells, sep = "," tells R that we are importing a comma separated file
+
+
+PlayersBBall[2143,"position"] = "G" #fixing a missing value for George Karl 
+PlayersBBall[2143,"height"] = "6-2" #fixing a missing value for George Karl 
+PlayersBBall[2143,"weight"] = 185 #fixing a missing value for George Karl 
+PlayersBBall[2143,] #checking for edits
+
+#Create new column to record actual player positions using case_when (https://therbootcamp.github.io/Erfurt_2018June/_sessions/D1S2_Wrangling/Wrangling_practical.html)
+
+PlayersBBall$position_name = case_when(
+  #is.na(PlayersBBall$position) ~ "missing",
+	PlayersBBall$position == "F-C" ~ "Forward/Center",
+  PlayersBBall$position == "C-F" ~ "Forward/Center",
+  PlayersBBall$position == "C" ~ "Center",
+	PlayersBBall$position == "G" ~ "Guard",
+	PlayersBBall$position == "F" ~ "Forward",
+  PlayersBBall$position == "F-G" ~ "Forward/Guard",
+	PlayersBBall$position == "G-F" ~ "Forward/Guard",
+  TRUE ~ "others") #Replaces blank new column $position_name with a name based on the abbreviated position in $position
+
+#Combine the data frames to add the position_name column to PlayersBBall
+
+height <- PlayersBBall$height
+height = str_split(PlayersBBall$height,"-")
+for(i in 1:length(height)){
+  height[[i]] = (as.numeric(height[[c(i,1)]])*12) + (as.numeric(height[[c(i,2)]]))
+}
+PlayersBBall$height <- as.numeric(height)
+head(PlayersBBall)
+
+PlayersBBall %>% ggplot(aes(x = height, fill = position_name)) +
+  geom_histogram() + xlab("Height In Inches") + theme_bw()
+
+```
+
+#FIFA STUDY
+
+```{r}
+fifa <- read.csv("C:/Users/justi/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 3/FIFA Players.csv")
+
+fifa <- na.omit(fifa) #Remove NA rows
+
+#Manipulate the Height by breaking apart the string, doing some math and then reassigning it to the original df
+fheight <- str_split(fifa$Height,"'") 
+for(i in 1:length(fheight)){
+  fheight[[i]] = (as.numeric(fheight[[c(i,1)]])*12) + (as.numeric(fheight[[c(i,2)]]))
+}
+fifa$Height <- as.numeric(fheight)
+
+#Manipulate the Weight by removing the "lbs" label and then reassigning it to the original df
+fweight <- as.numeric(str_replace(fifa$Weight,"lbs",""))
+fifa$Weight <- as.numeric(fweight)
+
+#Plot the Height and Weight to show the positive relationship between them
+fifa %>% 
+  filter(!is.na(Position)) %>%
+  ggplot(aes(x=Height, y=Weight, color=Position), na.rm=TRUE) +
+  geom_point()+ ylab("Weight (lbs)") + xlab("Height (Inches)") +
+  scale_y_continuous(breaks = c(100, 125, 150, 175, 200, 225, 250)) +
+  ggtitle("Player Height vs Weight") + theme_bw()
+
+
+```
+
+#Baby Names
+
+```{r}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(scales)
+
+################ Part 1 ##########################
+# a)
+y2016 <- read.csv2(file = "C:/Users/justi/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 5/yob2016.txt", sep=";")
+y2016 <- na.omit(y2016)
+names(y2016) <- c("Name", "Gender", "Babies")
+head(y2016)
+str(y2016)
+# b)
+unique(y2016$Gender) #checking for any odd labels
+summary(y2016)
+# c)
+which(str_detect(y2016$Name,"yyy"))
+y2016$Name[[which(str_detect(y2016$Name,"yyy"))]]
+# d)
+y2016 <- y2016[-c(211),]
+y2016[211,]
+
+
+################# Part 2 #############################
+# a) 
+y2015 <- read.csv2(file = "C:/Users/justi/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 5/yob2015.txt", sep=",")
+y2015 <- na.omit(y2015)
+summary(y2015)
+names(y2015) <- c("Name", "Gender", "Babies")
+unique(y2015$Gender)
+# b)
+tail(y2015,10)
+# Interesting - they all start with Z and stangely each was given to exactly 5 babies in 2015 
+# c)
+final <- merge(y2016, y2015, by="Name")
+head(final)
+
+############### Part 3 #############################
+# a) 
+for(i in 1:length(final$Name)){
+  final$Total[[i]] <- sum(final$Babies.x[[i]], final$Babies.y[[i]])  
+}
+head(final,10)
+final$Total <- as.numeric(final$Total)
+TotalBabies <- sum(final$Total)
+paste("In 2016 and 2015, a total of",prettyNum(TotalBabies, big.mark=",", scientific = FALSE),"were given popular baby names.")
+
+# b)
+final <- arrange(final,-Total)
+Top10NameList <- final$Name[1:10]
+paste("The 10 most popular baby names in 2015 and 2016 were:",Top10NameList)
+Top10NameList
+
+# C)
+finalgirl <- final %>% filter(Gender.x == "F" & Gender.y == "F") 
+finalgirl <- finalgirl[c(-2,-3,-4,-5,-6)]
+finalgirl <- finalgirl[1:10,]
+paste("The 10 most popular girl names fromr 2015 and 2016 are:")
+finalgirl
+
+# d)
+write.csv(finalgirl,file = "C:/Users/justi/Google Drive/_SMU/6306/Live Sessions Assignments/final_girlnames.csv")
+
+############ Part 4 ###########################
+#Visualization
+
+final$Gender.t = case_when(
+  final$Gender.x == "F" & final$Gender.y == "F" ~ "Female",
+  final$Gender.x == "M" & final$Gender.y == "M" ~ "Male",
+  final$Gender.x != final$Gender.y ~ "Neutral")
+final$color <- case_when(
+  final$Gender.t == "Female" ~ "pink",
+  final$Gender.t == "Male" ~ "blue",
+  final$Gender.t == "Neutral" ~ "green")
+head(final)
+
+Colors = c("pink", "blue", "green")
+
+final %>% 
+  group_by(Gender.t) %>%
+  ggplot(aes(x = Gender.t, fill = color)) + 
+  geom_bar(show.legend = FALSE) +
+  scale_y_continuous(labels=comma) + theme_bw() +
+  ggtitle("Number of Baby Names by Gender") +
+  xlab("Gender") + ylab("") +
+  scale_fill_manual(values=Colors[order(Colors)]) 
+
+Colors2 = c("pink", "blue")
+
+top_n(final, 10, Total) %>% group_by(Gender.t) %>%
+  ggplot(aes(x=Total, y=Name, fill = color)) +
+  geom_bar(stat="identity", show.legend = FALSE) +
+  scale_x_continuous(labels=comma) +
+  ggtitle("Top 10 Baby Names by Gender") +
+  aes(x=Total, y=reorder(Name,Total, sum), label=Total) +
+  scale_fill_manual(values=Colors2[order(Colors2)]) +
+  ylab("Names by Total Babies Named") + xlab("Babies by Name") +
+  theme_bw()
+
+```

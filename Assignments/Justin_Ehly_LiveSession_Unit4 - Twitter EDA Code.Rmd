@@ -1,0 +1,112 @@
+---
+title: "Twitter EDA for Unit 4"
+author: "Justin Ehly"
+date: "9/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Twitter Package
+EDA for Unit 4
+```{r}
+#install.packages("rtweet")
+library(rtweet)
+#install.packages("httpuv")
+library(httpuv)
+
+#store api keys
+api_key <- "KL3Lza8DmK1ePaW3CEt1InkUK"
+api_secret_key <- "BFHq0Ord4nrsKvwqxOrNrMXC3eg0BK074dCalTJg3FPmY53TY3"
+bearer_token <-  "AAAAAAAAAAAAAAAAAAAAAK1tHgEAAAAAG0POqCZDQdnmk4C4QRij2%2Fh8Ax0%3DjUkq9YwYDpfJUsdVddyebWoN1uZzb3qkVqCGy02bcy5PIUHK9v"
+access_token <- "122225847-mO7wxZ5EtQ75xxUkVAtpEg0uPbPAoMI5hs4OFrjn"
+access_token_secret <- "DzPp3lzfGY5VTvdFm4Kcm7tBGC9CNoL2tnrfAKDZMdteW"
+
+## authenticate via web browser
+token <- create_token(
+  app = "JustinDS6306-2020",
+  consumer_key = api_key,
+  consumer_secret = api_secret_key,
+  access_token = access_token,
+  access_secret = access_token_secret)
+
+#confirm token and app name
+get_token()
+
+#check rate limits
+rate_limit(token)
+rate_limit(token, "search_tweets")
+
+#query to search twitter with
+q_tweets <- c("netflix", "amazonprime", "peacock", "hbomax", "appletvplus", "disneyplus")
+
+#run multiple queries using search_tweets2 (search_tweets only does independent queries), by default
+# returns a dataframe, geocode:39.8,-95.583068847656,2500km is the lower 48 states - ish
+# Tidy Data
+tweets <- data.frame(search_tweets2(q_tweets, n = 500, type = "mixed", include_rts = FALSE, lang = "en", geocode = "39.8,-95.583068847656,2500km" ))
+class(tweets)
+twts <- tweets
+twts <- tibble::as_data_frame(twts)
+variable.names(twts)
+str(tweets)
+# remove unused variables
+twts <- drop(select(tweets, -c("is_retweet", "retweet_status_id","retweet_text", "retweet_created_at","retweet_source",          "retweet_favorite_count", "retweet_retweet_count",   "retweet_user_id","retweet_screen_name","retweet_name", "retweet_followers_count","retweet_friends_count","retweet_statuses_count","retweet_location","retweet_description","retweet_verified")))
+variable.names(twts)
+twts <- twts[,c(3,4,5,6,16,57,58,62,63,65,75) ]
+variable.names(twts)
+
+unique(twts$source)
+unique(twts$created_at)
+
+#break out date and times for analysis
+
+twts$date <- as.Date.POSIXct(twts$created_at)
+twts$time <- strftime(twts$created_at, format = "%T:%00")
+twts$hour <- strftime(twts$created_at, format = "%H")
+twts$dayofweek <- strftime(twts$created_at, format = "%A")
+twts$ampm <- strftime(twts$created_at, format = "%p")
+
+variable.names(twts)
+twts <- twts[, c(2,8,9,10,11,1,4,7,6,3,5)]
+colnames(twts)
+#reorganized output
+#colnames(twts)
+#[1] "screen_name"     "followers_count" "friends_count"   "statuses_count"  "query"        #[6] "created_at"      "source"          "location"        "name"            "text"         #[11] "hashtags"
+
+twts <- na.omit(twts)
+
+
+twts %>%
+  select(query, created_at, followers_count, statuses_count, friends_count) %>%
+  ggpairs(aes(color = query))
+
+  
+twts %>%
+  ggplot(aes(x = followers_count, y = friends_count)) +
+  geom_point(color="red") +
+  geom_smooth(method = glm, color = "blue") +
+  scale_y_continuous(label = scales::comma) +
+  scale_x_continuous(label = scales::comma) +
+  xlab("Followers of Tweeter") +
+  ylab("Users Followed By Tweeter(Poster)") +
+  ggtitle("Followers of Tweeter(Poster) v Users Followed by Tweeter(Poster)") +
+  theme_bw()
+  
+twts %>%
+  ggplot(aes(x = log(followers_count), y = log(friends_count))) +
+  geom_point(aes(color = query)) +
+  geom_smooth(method = glm, color = "blue") +
+  scale_y_continuous(label = scales::comma) +
+  scale_x_continuous(label = scales::comma) +
+  xlab("Log of Followers of Tweeter") +
+  ylab("Log of Users Followed By Tweeter(Poster)") +
+  ggtitle("Log of Followers of Tweeter(Poster) v Log Users Followed by Tweeter(Poster)") +
+  theme_bw()
+
+
+
+
+```

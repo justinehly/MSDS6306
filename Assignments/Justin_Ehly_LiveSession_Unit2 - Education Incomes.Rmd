@@ -1,0 +1,119 @@
+---
+title: "Unit 2 - Live Assisnemt - Education"
+author: "Justin Ehly"
+date: "August 29, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+#Install Packages and activate libraries
+#install.packages("ggplot2",repos = "http://cran.us.r-project.org")
+#install.packages("ggplot2")
+#install.packages("tidyverse")
+#install.packages("ggthemes")
+#install.packages("plotly")
+#install.packages("dplyr")
+#install.packages("moonBook")
+#library(ggplot2, tidyverse, ggthemes)
+#library(plotly)
+#library(dplyr)
+#library(tibble)
+#library(moonBook)
+#library(scales)
+
+#get working directory
+getwd() #"C:/Users/justi.DATA-POWER/Google Drive/_SMU/6306/Live Session Assignments"
+
+#clear all data and values from R Environment for a clean slate
+rm(list=ls()) 
+
+# Individual-observation data set
+#Download EducationIncome.csv dataset from class github
+EdIncome <- read.csv(file = 'C:/Users/justi.DATA-POWER/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 2/Education_Income.csv', 
+                         stringsAsFactors = FALSE,
+                         strip.white = TRUE,
+                         sep = ",") #stringsasfactors - makes sure we record the data as strings and not factors, strip.white removes any blank spaces in front of data in cells, sep = "," tells R that we are importing a comma separated file
+
+
+# Data Prep #
+
+#create a new data frames 
+# (1) Means Grouped by Education Level
+# (2) Medians Grouped by Education Level
+
+# credit: https://community.rstudio.com/t/finding-the-mean-of-a-column-for-specific-rows/45171/3
+
+EduMean <- EdIncome %>% group_by(Educ) %>% summarize(IncMean = mean(Income2005))
+EduMedian <- EdIncome %>% group_by(Educ) %>% summarize(IncMedian = median(Income2005))
+
+#create a working variable for EdIncome$Educ (shortens amount of typing)
+var1 <- EduMean$Educ
+
+# Provide a rank for each Education level
+Edu_Rank <- data.frame(Edu_Rank = case_when(
+  var1 == ">16" ~ 5,
+  var1 == "16" ~ 4,
+  var1 == "13-15" ~ 3,
+	var1 == "12" ~ 2,
+  var1 == "<12" ~ 1))
+#Add Ranking to Each EduMean 
+EduMean <- cbind(EduMean, Edu_Rank)
+
+var2 <- EduMedian$Educ
+
+# Provide a rank for each Education level
+Edu_Rank2 <- data.frame(Edu_Rank2 = case_when(
+  var2 == ">16" ~ 5,
+  var2 == "16" ~ 4,
+  var2 == "13-15" ~ 3,
+	var2 == "12" ~ 2,
+  var2 == "<12" ~ 1))
+
+#Add Ranking to Each EduMedian
+EduMedian <- cbind(EduMedian, Edu_Rank2)
+
+#Rename columns
+colnames(EduMean) <- c("Education", "IncMean", "Edu_Rank")
+colnames(EduMedian) <- c("Education1", "IncMedian", "Edu_Rank1")
+
+#Combine data frames into EduMoney
+EduMoney <- cbind(EduMean,EduMedian)
+
+# Rename each Education level
+EduMoney$Education = case_when(
+  EduMoney$Education == ">16" ~ "Post Grad Degree",
+  EduMoney$Education == "16" ~ "Bachelor Degree",
+  EduMoney$Education == "13-15" ~ "Some College",
+	EduMoney$Education == "12" ~ "Highschol Diploma",
+  EduMoney$Education == "<12" ~ "No HS Diploma")
+
+#remove unneeded columns
+EduMoney <- subset(EduMoney, select = -c(Education1, Edu_Rank1))
+
+# Sort EduMoney by Edu_Rank
+EduMoney <- EduMoney[order(EduMoney$Edu_Rank),] # sort
+EduMoney$Education <- factor(EduMoney$Education, levels=unique(EduMoney$Education)) #convert to factor to retain sorted order in plot
+# Build Visuals dervied from Source: https://stackoverflow.com/questions/32588215/add-multiple-geom-line-to-ggplot
+
+
+IncEdu <- EduMoney %>%
+  ggplot(aes(x = Education, y = IncMean, group = 1, color = Education)) +
+  geom_line(size = 1, color = "green") +
+  geom_point(size = 18) + #creates large data point
+  geom_text(aes(label = dollar(round(IncMean),1)), color = "white", size = 4) + # converts IncMean to Dollars 
+  ggtitle(" Mean Incomes v. Education Levels") +
+  scale_y_continuous(labels=scales::dollar_format()) +
+  ylab("Mean Incomes") +
+  xlab("Education Levels") +
+  theme_bw(base_size = 18)
+
+
+ggplotly(IncEdu)
+
+
+```

@@ -1,0 +1,555 @@
+---
+title: "6306 FLS 7"
+author: "Justin Ehly"
+date: "10/2/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Call titanic data, create df and tidy it
+
+```{r}
+
+library(tm) #text mining library provides the stopwords() function
+library(tidyr)
+library(plyr)
+library(jsonlite)
+library(dplyr)
+library(tidyverse)
+library(caret)
+library(class)
+library(e1071)
+
+call1 = "https://public.opendatasoft.com/api/records/1.0/search/?dataset=titanic-passengers&rows=2000&facet=survived&facet=pclass&facet=sex&facet=age&facet=embarked"
+
+titanic_json <- jsonlite::fromJSON(call1, flatten = TRUE)
+
+titanic_df <- as.data.frame(titanic_json$records)
+names(titanic_df)
+titanic_df <- subset(titanic_df[,c(7, 9, 10, 11)])
+names(titanic_df) <- c("age","pclass","gender","survived") 
+titanic_df <- na.omit(titanic_df)
+titanic_df[sapply(titanic_df, is.character)] <- lapply(titanic_df[sapply(titanic_df, is.character)],as.factor)
+titanic_df$plcass <- as.numeric(titanic_df$pclass)
+titanic_df$age <- as.numeric(titanic_df$age)
+```
+
+
+# 1) Using all 891 observations, train a NB model with Age and Pclass as predictors and use this model to predict the survival of a 30 year old passenger in the 1, 2 and 3 classes.  Use the “type = raw” option to look at the predicted percentage of each outcome. (One slide.)
+
+
+```{r}
+
+passenger <- data.frame(c(30,30,30),c(1,2,3))
+colnames(passenger) <- c("age", "pclass")
+passenger$pclass <- as.integer(passenger$pclass)
+passenger
+
+model = naiveBayes(titanic_df[,c(1,2)],titanic_df$survived)
+
+predict(model,passenger, type = "raw") #shows raw probabilities
+
+```
+
+
+#2) Split the 891 observations into a training and test set 70% - 30% using this seed and code:
+#       titanicClean = titanic %>% filter(!is.na(Age) & !is.na(Pclass))
+#       set.seed(4)
+#       trainIndices = sample(seq(1:length(titanicClean$Age)),round(.7*length(titanicClean$Age)))
+#       trainTitanic = titanicClean[trainIndices,]
+#       testTitanic = titanicClean[-trainIndices,]
+#   (One slide that shows the head of trainTitanic and testTitanic)
+
+```{r}
+
+set.seed(4)
+
+titanicClean = titanic_df
+
+iterations <- 1
+
+for( i in 1:iterations){
+  trainIndices = sample(seq(1:length(titanicClean$age)),round(.7*length(titanicClean$age)))
+  trainTitanic = titanicClean[trainIndices,]
+  testTitanic = titanicClean[-trainIndices,]
+}
+
+head(trainTitanic)
+head(testTitanic)
+
+
+```
+
+# 3) Train a NB model based on the training set using just the Age and Pclass variables. Use the model to predict the survival of those in the test set and use those results to evaluate the model based on accuracy, sensitivity and specificity. Finally, Compare the results to what you found with the KNN classifier. (At least one slide.)
+
+```{r}
+
+######## NB #################
+
+AccAvg = SpecAvg = SenAvg = 0
+
+it1 = 10
+
+masterAcc = matrix(nrow = it1)
+masterSen = matrix(nrow = it1)
+masterSpec = matrix(nrow = it1)
+
+for(h in 1:it1){
+  
+set.seed(h)
+titanicClean = titanic_df
+
+iterations = 7
+
+Acc = matrix(nrow = iterations)
+Sen = matrix(nrow = iterations)
+Spec = matrix(nrow = iterations)
+
+splitPerc = .7 #Training / Test split Percentage
+
+for(j in 1:iterations)
+{
+  
+  trainIndices = sample(1:dim(titanicClean)[1],round(splitPerc * dim(titanicClean)[1]))
+  trainTitanic = titanicClean[trainIndices,]
+  testTitanic = titanicClean[-trainIndices,]
+  
+  model = naiveBayes(trainTitanic[,c(1,2)],trainTitanic$survived)
+  
+  table(predict(model,testTitanic[,c(1,2)]),testTitanic$survived)
+  CM = confusionMatrix(table(predict(model,testTitanic[,c(1,2)]),testTitanic$survived))
+  Acc[j] = CM$overall[1]
+  Sen[j] = CM$byClass[1]
+  Spec[j] = CM$byClass[2]
+
+}
+masterAcc[h] = colMeans(Acc)
+masterSen[h] = colMeans(Sen)
+masterSpec[h] = colMeans(Spec)
+
+}
+
+MeanAcc = colMeans(masterAcc)
+MeanSen = colMeans(masterSen)
+MeanSpec = colMeans(masterSpec)
+
+Statistics <- data.frame(seq(1:100), masterAcc, masterSen, masterSpec)
+colnames(Statistics) <- c("Loop Count", "Accuray", "Sensitivity", "Specificity")
+
+SummaryStats <- colMeans(Statistics)
+SummaryStats[1] <- it2
+
+unique(Statistics)
+SummaryStats
+
+
+# Loop for many k and the average of many training / test partition
+titanicClean <- titanic_df
+
+set.seed(10)
+iterations = 100
+numks = 90
+splitPerc = .70
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+
+for(j in 1:iterations)
+{
+  trainIndices = sample(1:dim(titanicClean)[1],round(splitPerc * dim(titanicClean)[1]))
+  trainTitKNN = titanicClean[trainIndices,]
+  testTitKNN = titanicClean[-trainIndices,]
+  for(i in 1:numks)
+  {
+    classifications = class::knn(trainTitKNN[,c(1,2)],testTitKNN[,c(1,2)],trainTitKNN$survived, prob = TRUE, k = i)
+    table(classifications,testTitKNN$survived)
+    CM = confusionMatrix(table(classifications,testTitKNN$survived))
+    masterAcc[j,i] = CM$overall[1]
+  }
+  
+}
+
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+
+which.max(MeanAcc)
+max(MeanAcc)
+
+install.packages("Rfast")
+library(Rfast)
+  
+nth(MeanAcc,2, descending = TRUE) # = 11
+which(MeanAcc == nth(MeanAcc,2, descending = TRUE))
+
+
+########  KNN  based on K test above ########
+
+num_k = 11
+set.seed(4)
+iterations = 100
+numks = 90
+splitPerc = .70
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+
+for(j in 1:iterations)
+{
+  trainIndices = sample(1:dim(titanicClean)[1],round(splitPerc * dim(titanicClean)[1]))
+  trainTitKNN = titanicClean[trainIndices,]
+  testTitKNN = titanicClean[-trainIndices,]
+  classifications = knn(trainTitKNN[,c(1,2)],testTitKNN[,c(1,2)],trainTitKNN$survived, prob = TRUE, k = num_k)
+  table(classifications,testTitKNN$survived)
+  CM = confusionMatrix(table(classifications,testTitKNN$survived))
+  masterAcc[j,i] = CM$overall[1]
+}
+
+
+MeanAcc = colMeans(masterAcc)
+CM
+
+```
+
+# 4) Loop 100x
+
+```{r}
+
+#######   NB ##################
+titanicClean = titanic_df
+
+iterations_NB = 100
+
+Acc = matrix(nrow = iterations_NB)
+Sen = matrix(nrow = iterations_NB)
+Spec = matrix(nrow = iterations_NB)
+
+splitPerc = .7 #Training / Test split Percentage
+
+for(j in 1:iterations_NB)
+{
+  set.seed(j)
+  trainIndices = sample(1:dim(titanicClean)[1],round(splitPerc * dim(titanicClean)[1]))
+  trainTitanic = titanicClean[trainIndices,]
+  testTitanic = titanicClean[-trainIndices,]
+  
+  model = naiveBayes(trainTitanic[,c(1,2)],trainTitanic$survived)
+  
+  table(predict(model,testTitanic[,c(1,2)]),testTitanic$survived)
+  CM = confusionMatrix(table(predict(model,testTitanic[,c(1,2)]),testTitanic$survived))
+  Acc[j] = CM$overall[1]
+  Sen[j] = CM$byClass[1]
+  Spec[j] = CM$byClass[2]
+
+}
+
+Statistics <- data.frame(seq(1:100), Acc, Sen, Spec)
+colnames(Statistics) <- c("Loop Count", "Accuray", "Sensitivity", "Specificity")
+SummaryStats <- colMeans(Statistics)
+SummaryStats[1] <- iterations_NB
+SummaryStats
+
+
+
+########  KNN  based on K test above ########
+titanicClean = titanic_df
+
+num_k = 11
+iterations_knn = 100
+splitPerc = .7 #Training / Test split Percentage
+
+AccKNN = matrix(nrow = iterations_knn)
+SenKNN = matrix(nrow = iterations_knn)
+SpecKNN = matrix(nrow = iterations_knn)
+
+for(j in 1:iterations_knn)
+{
+  set.seed(j)
+  trainIndices = sample(1:dim(titanicClean)[1],round(splitPerc * dim(titanicClean)[1]))
+  trainTitKNN = titanicClean[trainIndices,]
+  testTitKNN = titanicClean[-trainIndices,]
+  classifications = knn(trainTitKNN[,c(1,2)],testTitKNN[,c(1,2)],trainTitKNN$survived, prob = TRUE, k = num_k)
+  table(classifications,testTitKNN$survived)
+  CM_KNN = confusionMatrix(table(classifications,testTitKNN$survived))
+  AccKNN[j] = CM_KNN$overall[1]
+  SenKNN[j] = CM_KNN$byClass[1]
+  SpecKNN[j] = CM_KNN$byClass[2]
+}
+
+Statistics_knn <- data.frame(seq(1:100), AccKNN, SenKNN, SpecKNN)
+colnames(Statistics_knn) <- c("Loop Count", "Accuray", "Sensitivity", "Specificity")
+SummaryStats_knn <- colMeans(Statistics_knn)
+SummaryStats_knn[1] <- iterations_NB
+SummaryStats_knn
+
+
+### Comparison ###
+
+ComparisonStats = rbind(SummaryStats, SummaryStats_knn)
+
+ComparisonStats <- as.data.frame(ComparisonStats)
+rownames(ComparisonStats) <- c("NB Stats", "kNN Stats")
+ComparisonStats
+
+```
+
+# 5) Now add Sex to the model so that it has Age, Pclass and Sex in the NB model.  Use the trainTitanic(set.seed(4)) dataframe to train the model and create a confusion matrix using the testTitanic dataframe.  In addition, find the Accuracy, Sensitivity and Specificity. (1 slide)
+
+# 6) Again write a loop to get a stable estimate of the accuracy, sensitivity and specificity of this model (using 100 unique seeds).  (1 slide)
+
+
+```{r}
+
+#######   NB for no loop set Iterations = 1 ##################
+titanicClean = titanic_df[-5]
+titanicClean$gender <- ifelse(titanicClean$gender == "female",1,2)
+set.seed(4)
+splitPerc = .7 #Training / Test split Percentage
+Iterations = 100
+Acc3 <- matrix(nrow = Iterations)
+for(i in 1:Iterations){
+  trainIndices = sample(1:dim(titanicClean)[1],round(splitPerc * dim(titanicClean)[1]))
+  trainTitanic = titanicClean[trainIndices,]
+  testTitanic = titanicClean[-trainIndices,]
+  model = naiveBayes(trainTitanic[,c(1,2,3)],trainTitanic$survived)
+  table(predict(model,testTitanic[,c(1,2,3)]),testTitanic$survived)
+  CM = confusionMatrix(table(predict(model,testTitanic[,c(1,2,3)]),testTitanic$survived))
+  Acc3[i] <- CM$overall[1]
+}
+
+plot(seq(1,Iterations,1),Acc3, type = "l", xlab = "Iteration", ylab = "Accuracy", main = "Accuracy Measures by Loop Iteration", col = "mediumblue")
+CM
+max(Acc3)
+which.max(Acc3)
+
+
+
+```
+
+Bonus
+
+```{r}
+##### KNN + Gender ######
+
+set.seed(6) #makes reproducable, just an arbitrary number
+splitPerc = 0.70
+for(i in 1:100){
+titanic_df$gender <- ifelse(titanic_df$gender == "female",1,2)
+trainIndices = sample(1:dim(titanic_df)[1],round(splitPerc * dim(titanic_df)[1]))
+titanic_train = as.data.frame(titanic_df[trainIndices,])
+titanic_test = as.data.frame(titanic_df[-trainIndices,])
+
+classifications = knn(titanic_train[,c(1,2,3)], titanic_test[,c(1,2,3)], titanic_train$survived, prob = TRUE, k = 11)
+table(classifications,titanic_test$survived)
+CM <- confusionMatrix(table(classifications,titanic_test$survived))
+}
+CM
+```
+
+
+# Iris: For the full (multinomial) IRIS data (the iris dataset in R), do a 70-30 train/test cross validation and use sepal length and width as predictors.  Generate 100 different train/test splits and calculate the average accuracy, sensitivity and specificity.  Compare the average accuracy to that to the KNN model you used in Unit 6.  
+
+```{r}
+# Loop for many k and the average of many training / test partition
+
+set.seed(10)
+iterations = 100
+numks = 90
+splitPerc = .70
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+
+for(j in 1:iterations)
+{
+  trainIndices = sample(1:dim(iris)[1],round(splitPerc * dim(iris)[1]))
+  train = iris[trainIndices,]
+  test = iris[-trainIndices,]
+  for(i in 1:numks)
+  {
+    classifications = class::knn(train[,c(1,2)],test[,c(1,2)],train$Species, prob = TRUE, k = i)
+    table(classifications,test$Species)
+    CM = confusionMatrix(table(classifications,test$Species))
+    masterAcc[j,i] = CM$overall[1]
+  }
+  
+}
+
+MeanAcc = colMeans(masterAcc)
+plot(seq(1,numks,1),MeanAcc, type = "l")
+which.max(MeanAcc)
+max(MeanAcc)
+k=which.max(MeanAcc)
+
+##### Cross Validation KNN using K Value from above #####
+set.seed(10)
+splitPerc = .7
+
+AccIris <- matrix(nrow = 100)
+
+for(j in 1:100){
+trainIndices = sample(1:dim(iris)[1],round(splitPerc * dim(iris)[1]))
+train = iris[trainIndices,]
+test = iris[-trainIndices,]
+
+classifications = knn(train[,c(1,2)],test[,c(1,2)],train$Species, prob = TRUE, k = k)
+table(classifications,test$Species)
+CM = confusionMatrix(table(classifications,test$Species))
+AccIris[j] <- CM$overall[1]
+}
+MeanAccIris <- colMeans(AccIris)
+CM
+MeanAccIris
+
+```
+
+# Bonus: NYT - Trump
+
+```{r}
+# term <- "Trump" # Need to use + to string together separate words
+# begin_date <- "20190415"
+# end_date <- "20190502"
+
+######################
+
+#NYT Example
+
+library(tm) #text mining library provides the stopwords() function
+library(tidyr)
+library(plyr)
+library(jsonlite)
+library(dplyr)
+library(tidyverse)
+library(caret)
+
+
+NYTIMES_KEY = "s6YwO4tk8ZzronXxbN98MV3Q8aMMgBGa" #Your Key Here … get from NTY API website
+
+# Let's set some parameters
+term <- "Trump" # Need to use + to string together separate words
+begin_date <- "20180901"
+end_date <- "20190502"
+
+baseurl <- paste0("http://api.nytimes.com/svc/search/v2/articlesearch.json?q=",term,
+                  "&begin_date=",begin_date,"&end_date=",end_date,
+                  "&facet_filter=true&api-key=",NYTIMES_KEY, sep="")
+
+baseurl
+
+initialQuery <- jsonlite::fromJSON(baseurl)
+maxPages <- round((initialQuery$response$meta$hits[1] / 10)-1)
+maxPages
+
+pages <- list()
+for(i in 0:maxPages){
+  nytSearch <- jsonlite::fromJSON(paste0(baseurl, "&page=", i), flatten = TRUE) %>% data.frame() 
+  message("Retrieving page ", i)
+  pages[[i+1]] <- nytSearch 
+  Sys.sleep(7) 
+}
+
+allNYTSearch <- rbind_pages(pages)
+
+
+#Segmentation
+
+# Visualize coverage by section
+allNYTSearch %>% 
+  group_by(response.docs.type_of_material) %>%
+  dplyr::summarize(count=n()) %>%
+  mutate(percent = (count / sum(count))*100) %>%
+  ggplot() +
+  geom_bar(aes(y=percent, x=response.docs.type_of_material, fill=response.docs.type_of_material), stat = "identity") + coord_flip()
+
+#Make another column of News versus Other ... The labels
+
+allNYTSearch$NewsOrOther = ifelse(allNYTSearch$response.docs.type_of_material == "News","News","Other")
+#There is an NA in NewsOrOther
+
+# Visualize coverage of News or Other
+allNYTSearch[!is.na(allNYTSearch$NewsOrOther),] %>% 
+  group_by(NewsOrOther) %>%
+  dplyr::summarize(count=n()) %>%
+  mutate(percent = (count / sum(count))*100) %>%
+  ggplot() +
+  geom_bar(aes(y=percent, x=NewsOrOther, fill=NewsOrOther), stat = "identity") + coord_flip()
+
+
+
+#Train and Test Split 70%/30%
+
+set.seed(2)
+trainInd = sample(seq(1,dim(allNYTSearch)[1],1),round(.7*dim(allNYTSearch)[1]))
+allNYTSearchTrain = allNYTSearch[trainInd,]
+allNYTSearchTest = allNYTSearch[-trainInd,]
+
+
+#This function returns P(News | Keyword) 
+#P(News|KW) = P(KW|News)* P(News) / P(KW)
+Pnews_word = function(key_word, trainingSet, alphaLaplace = 1, betaLaplace = 1) # alpha and beta are for laplace smoothing
+{
+  trainingSet$response.docs.headline.main = unlist(str_replace_all(trainingSet$response.docs.headline.main,"[^[:alnum:] ]", "")) #Take out all but alpha numeric characters from training headlines
+  
+  #print(key_word)
+  NewsGroup = trainingSet[trainingSet$NewsOrOther == "News",]
+  OtherGroup = trainingSet[trainingSet$NewsOrOther == "Other",]
+  
+  pNews = dim(NewsGroup)[1] / (dim(NewsGroup)[1] + dim(OtherGroup)[1])
+  pOther = 1 - pNews
+  
+  pKWGivenNews = (length(str_which(NewsGroup$response.docs.headline.main,regex(str_c("\\b",key_word,"\\b",sep=""),ignore.case = TRUE)))+alphaLaplace)/(dim(NewsGroup)[1]+betaLaplace)
+  pKWGivenOther = (length(str_which(OtherGroup$response.docs.headline.main,regex(str_c("\\b",key_word,"\\b",sep=""),ignore.case = TRUE)))+alphaLaplace)/(dim(OtherGroup)[1]+betaLaplace)
+  
+  pKW = length(str_which(trainingSet$response.docs.headline.main,regex(str_c("\\b",key_word,"\\b",sep=""),ignore.case = TRUE)))/dim(trainingSet)[1]
+  
+  pNewsGivenKW = pKWGivenNews*pNews/pKW
+  pOtherGivenKW = pKWGivenOther*pOther/pKW
+  
+  return(pNewsGivenKW)
+}
+
+theScoreHolderNews = c()
+theScoreHolderOther = c()
+articleScoreNews = 0;
+articleScoreOther = 0;
+
+
+for (i in 1 : dim(allNYTSearchTest)[1])  #This loop iterates over the articles in the Test Set
+{
+  
+  articleScoreNews = 1; 
+  articleScoreOther = 1;
+
+#The [^[:alnum:] ] replaces all non alphanumeric characters with nulls.  
+theText = unlist(str_split(str_replace_all(allNYTSearchTest[i,]$response.docs.headline.main,"[^[:alnum:] ]", ""), stringr::boundary("word"))) #Take out all but alpha numeric characters from search string ... theText holds each word in the headline as its own word.  
+
+# stopwords() #from package tm
+wordsToTakeOut = stopwords()
+
+# put word boundaries stopwords so that we don't detect partial words later
+wordsToTakeOut = str_c(wordsToTakeOut,collapse = "\\b|\\b") 
+wordsToTakeOut = str_c("\\b",wordsToTakeOut,"\\b")
+#wordsToTakeOut
+
+importantWords = theText[!str_detect(theText,regex(wordsToTakeOut,ignore_case = TRUE))]
+
+#importantWords
+
+  for(j in 1 : length(importantWords))  #This loop iterates over the important words in the headline
+  {
+    articleScoreNews = articleScoreNews * Pnews_word(importantWords[j],allNYTSearchTrain)
+    articleScoreOther = articleScoreOther * (1 - Pnews_word(importantWords[j],allNYTSearchTrain))
+  }
+  theScoreHolderNews[i] = articleScoreNews
+  theScoreHolderOther[i] = articleScoreOther
+}
+
+# Classify the aricle as News or Other based on a given piece of information from the article.
+allNYTSearchTest$Classified = ifelse(theScoreHolderNews > theScoreHolderOther,"News","Other")
+
+#Confusion Matrix
+table(allNYTSearchTest$Classified,allNYTSearchTest$NewsOrOther) #Actual in Columns
+confusionMatrix(factor(allNYTSearchTest$Classified),factor(allNYTSearchTest$NewsOrOther))
+
+
+```

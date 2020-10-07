@@ -1,0 +1,53 @@
+---
+title: "Education Live Assignment Unit 2"
+author: "Justin Ehly"
+date: "August 29, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+#Packages needed
+library(ggplot2)
+library(dplyr)
+
+#get working directory
+getwd() #"C:/Users/justi.DATA-POWER/Google Drive/_SMU/6306/Live Session Assignments"
+
+#Download PlayerBBall.csv dataset - additional commands can be found here: https://swcarpentry.github.io/r-novice-inflammation/11-supp-read-write-csv/
+
+rm(list=ls()) #deletes all data and values that may be hanging around in the R environment
+
+# Individual-observation data set
+EdIncome <- 
+EdIncome <- read.csv(file = 'C:/Users/justi.DATA-POWER/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 2/Education_Income.csv', sep = ",", header = TRUE, stringsAsFactors = FALSE) #stringsasfactors - makes sure we record the data as strings and not factors, strip.white removes any blank spaces in front of data in cells, sep = "," tells R that we are importing a comma separated file
+
+#Create a group-means data set
+EduMeans <- EdIncome %>%
+  group_by(Educ) %>%
+  summarise(
+    var12 = mean(EdIncome$Income2005),
+    var16 = mean(EdIncome$Income2005),
+    var16ovr = mean(EdIncome$Income2005),
+    var1315 = mean(EdIncome$Income2005),
+    var12und = mean(EdIncome$Income2005)
+  )
+
+EduMedians <- EdIncome %>%
+  group_by(Educ) %>%
+  summarise(
+    var12 = median(EdIncome$Income2005),
+    var16 = median(EdIncome$Income2005),
+    var16ovr = median(EdIncome$Income2005),
+    var1315 = median(EdIncome$Income2005),
+    var12und = median(EdIncome$Income2005)
+  ) 
+
+
+
+
+```

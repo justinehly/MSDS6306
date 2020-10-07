@@ -1,0 +1,370 @@
+---
+title: "MS6306 - Live Session Assignment Unit 2"
+author: "Justin Ehly"
+date: "August 28, 2020"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require("knitr")
+opts_knit$set(root.dir = "C:/Users/justi.DATA-POWER/Google Drive/_SMU/6306/Live Session Assignments/" )
+
+```
+
+```{r}
+#Install Packages and activate libraries
+install.packages("ggplot2",repos = "http://cran.us.r-project.org")
+install.packages("ggplot2")
+install.packages("tidyverse")
+install.packages("ggthemes")
+install.packages("plotly")
+install.packages("dplyr")
+library(ggplot2, tidyverse, ggthemes)
+library(plotly)
+library(dplyr)
+library(tibble)
+
+#get working directory
+getwd() #"C:/Users/justi.DATA-POWER/Google Drive/_SMU/6306/Live Session Assignments"
+
+#Download PlayerBBall.csv dataset - additional commands can be found here: https://swcarpentry.github.io/r-novice-inflammation/11-supp-read-write-csv/
+
+rm(list=ls()) #deletes all data and values that may be hanging around in the R environment
+
+PlayersBBall <- read.csv(file = 'C:/Users/justi.DATA-POWER/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 2/PlayersBBall.csv', 
+                         stringsAsFactors = FALSE,
+                         strip.white = TRUE,
+                         sep = ",") #stringsasfactors - makes sure we record the data as strings and not factors, strip.white removes any blank spaces in front of data in cells, sep = "," tells R that we are importing a comma separated file
+
+
+PlayersBBall[2143,"position"] = "G" #fixing a missing value for George Karl 
+PlayersBBall[2143,"height"] = "6-2" #fixing a missing value for George Karl 
+PlayersBBall[2143,"weight"] = 185 #fixing a missing value for George Karl 
+PlayersBBall[2143,] #checking for edits
+
+#Create new column to record actual player positions using case_when (https://therbootcamp.github.io/Erfurt_2018June/_sessions/D1S2_Wrangling/Wrangling_practical.html)
+
+position_name = data.frame(position_name = case_when(
+  #is.na(PlayersBBall$position) ~ "missing",
+	PlayersBBall$position == "F-C" ~ "Forward/Center",
+  PlayersBBall$position == "C-F" ~ "Forward/Center",
+  PlayersBBall$position == "C" ~ "Center",
+	PlayersBBall$position == "G" ~ "Guard",
+	PlayersBBall$position == "F" ~ "Forward",
+  PlayersBBall$position == "F-G" ~ "Forward/Guard",
+	PlayersBBall$position == "G-F" ~ "Forward/Guard",
+  TRUE ~ "others")) #Replaces blank new column $position_name with a name based on the abbreviated position in $position
+
+#Combine the data frames to add the position_name column to PlayersBBall
+PlayersBBall <- cbind(PlayersBBall,position_name)
+
+#Convert data frames to a tibble (http://www.sthda.com/english/wiki/reordering-data-frame-columns-in-r)
+BBPlayers <- as_data_frame(PlayersBBall)
+View(BBPlayers) #opens up entire tibble in separate tab to verify data
+
+#rearrange columns to ensure data accuracy
+colnames(BBPlayers) #list column names to ensure accuracy
+col_order <- c("name", "year_start", "year_end", "position", "position_name", "height", "weight", "birth_date", "college")
+BBPlayers <- BBPlayers[, col_order] #reorders columns by column names
+view(BBPlayers) #opens up entire tibble in separate tab to verify data
+ 
+
+#Visually represent the players in each position
+#help with geom_text: https://stackoverflow.com/questions/26553526/how-to-add-frequency-count-labels-to-the-bars-in-a-bar-graph-using-ggplot2
+
+p = BBPlayers %>%
+  ggplot(aes(x = position_name, fill = position_name)) +
+  geom_bar() + 
+  ggtitle("Bar Chart to Visually Represent Players in Each Position") + 
+  xlab("Basketball Positions") + ylab("Number of Players in Position") +
+  geom_text(stat = 'count', aes(label=..count..),nudge_y = 12) + 
+  theme(legend.position = "none")
+
+ggplotly(p, tooltip = position_name) #calls ploty interactive bar chart
+
+
+```
+
+
+
+#Use the dataset to visually investigate the distribution of the weight of centers (C) is greater than the distribution of the weight of forwards (F).  
+```{r}
+#Install Packages and activate libraries
+
+library(ggplot2, tidyverse, ggthemes)
+library(plotly)
+library(dplyr)
+library(tibble)
+
+
+rm(list=ls()) #deletes all data and values that may be hanging around in the R environment
+
+PlayersBBall <- read.csv(file = 'C:/Users/justi.DATA-POWER/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 2/PlayersBBall.csv', 
+                         stringsAsFactors = FALSE,
+                         strip.white = TRUE,
+                         sep = ",",
+                         fill = TRUE) #stringsasfactors - makes sure we record the data as strings and not factors, strip.white removes any blank spaces in front of data in cells, sep = "," tells R that we are importing a comma separated file
+
+
+#Create new column to record actual player positions using case_when (https://therbootcamp.github.io/Erfurt_2018June/_sessions/D1S2_Wrangling/Wrangling_practical.html)
+
+position_name = data.frame(position_name = case_when(
+  is.na(PlayersBBall$position) ~ "NA",
+	PlayersBBall$position == "F-C" ~ "Forward/Center",
+  PlayersBBall$position == "C-F" ~ "Forward/Center",
+  PlayersBBall$position == "C" ~ "Center",
+	PlayersBBall$position == "G" ~ "Guard",
+	PlayersBBall$position == "F" ~ "Forward",
+  PlayersBBall$position == "F-G" ~ "Forward/Guard",
+	PlayersBBall$position == "G-F" ~ "Forward/Guard")) #Replaces blank new column $position_name with a name based on the abbreviated position in $position
+
+#Combine the data frames to add the position_name column to PlayersBBall
+PlayersBBall <- cbind(PlayersBBall,position_name)
+
+#Convert data frames to a tibble (http://www.sthda.com/english/wiki/reordering-data-frame-columns-in-r)
+BBPlayers <- as_data_frame(PlayersBBall)
+
+#rearrange columns to ensure data accuracy
+colnames(BBPlayers) #list column names to ensure accuracy
+col_order <- c("name", "year_start", "year_end", "position", "position_name", "height", "weight", "birth_date", "college")
+BBPlayers <- BBPlayers[, col_order] #reorders columns by column names
+
+
+#Visually represent the players in each position
+#help with geom_text: https://stackoverflow.com/questions/26553526/how-to-add-frequency-count-labels-to-the-bars-in-a-bar-graph-using-ggplot2
+
+
+centers = BBPlayers[BBPlayers$position_name == "Center",] %>%  #assigns variable center to the ggplot
+  ggplot(aes(x = weight)) + 
+  geom_bar(stat = "count") + #calls bar chart
+  ggtitle("Distribution of Weights for Centers") + #bar chart title
+  scale_x_continuous(name = "Weights of Centers", limits = c(150,375), breaks = seq(150, 375, 25)) + #controls the name of the xaxis, the upper and lower limits and sets a tick every 25lbs
+  theme_bw() #removes background color
+
+ggplotly(centers) #passes the centers ggplot data to ggplotly for interactive graph
+
+
+forwards = BBPlayers[BBPlayers$position_name == "Forward",] %>% #assigns variable forwards to the ggplot
+  ggplot(aes(x = weight)) + 
+  geom_bar(stat = "count") + #calls bar chart
+  ggtitle("Distribution of Weights for Forwards") + #sets bar chart title
+  scale_x_continuous(name = "Weights of Forwards", limits = c(125,375), breaks = seq(150, 375, 25)) + #controls the xaxis title, the upper and lower limits and sets a tick every 25lbs
+  theme_bw() #removes background color
+
+ggplotly(forwards) #passes the forwards ggplot data to ggplotly for interactive graph
+
+
+
+
+
+```
+
+
+#Set up Data in tibble/ Data Frame, manipulate and visualize it
+```{r}
+#Install Packages and activate libraries
+
+library(ggplot2, tidyverse, ggthemes)
+library(plotly)
+library(dplyr)
+library(tibble)
+
+
+rm(list=ls()) #deletes all data and values that may be hanging around in the R environment
+
+PlayersBBall <- read.csv(file = 'C:/Users/justi.DATA-POWER/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 2/PlayersBBall.csv', 
+                         na.strings = c("", "NA", "#N/A"),
+                         stringsAsFactors = FALSE,
+                         strip.white = TRUE,
+                         sep = ",") #stringsasfactors - makes sure we record the data as strings and not factors, strip.white removes any blank spaces in front of data in cells, sep = "," tells R that we are importing a comma separated file
+
+#Create new column to record actual player positions using case_when (https://therbootcamp.github.io/Erfurt_2018June/_sessions/D1S2_Wrangling/Wrangling_practical.html)
+
+position_name = data.frame(position_name = case_when(
+  #is.na(PlayersBBall$position) ~ "NA",
+	PlayersBBall$position == "F-C" ~ "Forward/Center",
+  PlayersBBall$position == "C-F" ~ "Forward/Center",
+  PlayersBBall$position == "C" ~ "Center",
+	PlayersBBall$position == "G" ~ "Guard",
+	PlayersBBall$position == "F" ~ "Forward",
+  PlayersBBall$position == "F-G" ~ "Forward/Guard",
+	PlayersBBall$position == "G-F" ~ "Forward/Guard")) #Replaces blank new column $position_name with a name based on the abbreviated position in $position
+
+#Combine the data frames to add the position_name column to PlayersBBall
+PlayersBBall <- cbind(PlayersBBall,position_name)
+
+#Convert data frames to a tibble (http://www.sthda.com/english/wiki/reordering-data-frame-columns-in-r)
+BBPlayers <- as_data_frame(PlayersBBall)
+
+#rearrange columns to ensure data accuracy
+colnames(BBPlayers) #list column names to ensure accuracy
+col_order <- c("name", "year_start", "year_end", "position", "position_name", "height", "weight", "birth_date", "college")
+BBPlayers <- BBPlayers[, col_order] #reorders columns by column names
+
+#separate the height feet and inches
+BBPlayers <- BBPlayers %>% separate(height, c("feet", "inches"), sep = "-", convert = TRUE)
+
+#create a new column called height_inches that = feet * 12 + inches to record all heights in inches 
+BBPlayers$height_inches <- (BBPlayers$feet * 12) + BBPlayers$inches
+
+#######################-----Asignment--------------------------#################
+#Use the dataset to visually investigate if the distribution of the height of centers (C) is greater than the distribution of the height of forwards (F).
+
+centers_height = BBPlayers[BBPlayers$position_name == "Center",] %>%  #assigns variable center to the ggplot
+  ggplot(aes(x = height_inches)) + 
+  geom_bar(fill = "blue", color = "red", stat = "count") + #calls bar chart
+  ggtitle("Distribution of Heights of Centers in Inches") + #bar chart title
+  scale_x_continuous(name = "Heights of Centers in Inches", limits = c(75,95), breaks = seq(75, 95, 5)) + #controls the name of the xaxis, the upper and lower limits and sets a tick every 25lbs
+  theme_bw() #removes background color
+
+ggplotly(centers_height) #passes the centers ggplot data to ggplotly for interactive graph
+
+
+forwards_heights = BBPlayers[BBPlayers$position_name == "Forward",] %>% #assigns variable forwards to the ggplot
+  ggplot(aes(x = height_inches)) + 
+  geom_bar(fill = "red", color = "blue", stat = "count") + #calls bar chart
+  ggtitle("Distribution of Heights of Forwards in Inches") + #sets bar chart title
+  scale_x_continuous(name = "Heights of Forwards in Inches", limits = c(75,95), breaks = seq(75, 95, 5)) + #controls the xaxis title, the upper and lower limits and sets a tick every 25lbs
+  theme_bw() #removes background color
+
+ggplotly(forwards_heights) #passes the forwards ggplot data to ggplotly for interactive graph
+
+
+
+#######################-------------Assignment----------------------#################
+###Distribution of Height is different between any of the positions
+
+
+all_heights <- BBPlayers %>% 
+  ggplot(BBPlayers = subset(BBPlayers,!is.na(feet)), aes(x = position_name, y = height_inches)) + 
+  geom_boxplot(fill = "blue", color = "red") +
+  ggtitle("Visual Investigation of Height Distribution Between Different Positions in Basketball") +
+  xlab("Positions") +
+  scale_y_continuous(name = "Heights of Players in Inches", breaks = seq(60, 95, 1)) +
+  theme_bw() #removes background color, sets to white
+
+ggplotly(all_heights)
+
+
+#######################-------------Assignment----------------------#################
+
+# Use the dataset to investigate how the player’s height is related to the player’s weight. How does height change as the weight changes?  
+
+Players <- BBPlayers %>% 
+  ggplot(BBPlayers = subset(BBPlayers,!is.na(feet)), aes(x = weight, y = height_inches)) + 
+  geom_point(aes(color = position_name), position = "jitter") +
+  ggtitle("Visual Representation of Player Heights vs Weights in Basketball") +
+  scale_x_continuous(name = "Player Weights", breaks = seq(100,375, 25)) +
+  scale_y_continuous(name = "Heights of Players in Inches", breaks = seq(60, 95, 1)) +
+  theme_bw() #removes background color, sets to white
+  
+
+ggplotly(Players)
+
+#######################-------------Assignment----------------------#################
+# Is their any difference in the relationship between height and weight between positions?  Are height and weight related differently for different positions.
+
+Players2 <- BBPlayers %>% 
+  ggplot(BBPlayers = subset(BBPlayers,!is.na(feet)), aes(x = weight, y = height_inches, color = position_name)) + 
+  geom_smooth() +
+  ggtitle("Visual Representation of Player Heights vs Weights in Basketball by Position") +
+  scale_x_continuous(name = "Player Weights", breaks = seq(100,375, 25)) +
+  scale_y_continuous(name = "Heights of Players in Inches", breaks = seq(60, 95, 1)) +
+  theme_bw() #removes background color, sets to white
+  
+
+ggplotly(Players2)
+
+#######################-------------Assignment----------------------#################
+# A historian would like to investigate the claim that the heights of players have increased over the years.  Analyze this claim graphically / visually. 
+
+#create mean playing year for analysis
+
+BBPlayers$MeanYear = (BBPlayers$year_start + BBPlayers$year_end) / 2
+head(BBPlayers$MeanYear)
+
+PlayersHeights <- BBPlayers %>% 
+  ggplot(BBPlayers = subset(BBPlayers,!is.na(feet)), aes(x = MeanYear, y = height_inches)) +   
+  geom_smooth() +
+  #geom_point(position = "jitter") +
+  ggtitle("Visual Representation of Basketball Player Heights 1950-Present") +
+  scale_x_continuous(name = "Mean of Active Playing Years", breaks = seq(1950, 2020, 10)) +
+  scale_y_continuous(name = "Heights of Players in Inches", breaks = seq(60, 95, 1)) +
+  theme_bw() #removes background color, sets to white
+  
+
+ggplotly(PlayersHeights)
+
+#######################-------------Assignment----------------------#################
+#Create a 3D plot of height vs. weight vs. year and color code the points by position
+
+Players3D #calls for variable "Players3D" to run
+
+#Ploylt using Basketball Player data
+
+Players3D <- plot_ly(BBPlayers, x = ~height_inches, y = ~weight, z = ~MeanYear, color = ~position_name) %>%   
+  add_markers() %>%
+  layout( scene = list(
+    xaxis = list(title = 'Player Height In Inches'),
+    yaxis = list(title = 'Player Weight'),
+    zaxis = list(title = 'Mean Year of Player Active Status')
+    ))
+  
+  
+#runs the 3D plot by calling up #Players3D"
+Players3D
+
+
+#######################-------------Assignment----------------------#################
+# Go to this website and use one of the 50 best plots to visualize some aspect of the data and provide at least one insight.  You will present your work in breakout! http://r-statistics.co/Top50-Ggplot2-Visualizations-MasterList-R-Code.html
+
+## Data Prep##
+
+#Average number of years a player is in the NBA
+BBPlayers$YearsInLeague <- BBPlayers$year_end - BBPlayers$year_start 
+
+#create a new data frame grouped by the final year a player was in the NBA and the average of all the years played by all the players that retired that year --
+# credit: https://community.rstudio.com/t/finding-the-mean-of-a-column-for-specific-rows/45171/3
+
+PlayerAverage <- BBPlayers %>% group_by(position_name) %>% summarize(AvgYears = mean(YearsInLeague))
+PlayerAverage
+
+#Renaming columns -- https://www.datanovia.com/en/lessons/rename-data-frame-columns-in-r/#:~:text=144%20more%20rows-,Renaming%20columns%20with%20R%20base%20functions,column%20names%20where%20name%20%3D%20Sepal.
+
+names(PlayerAverage)[names(PlayerAverage)=="position_name"] <- "Position"
+
+PlayerAverage$AvgYears_z <- round((PlayerAverage$AvgYears - mean(PlayerAverage$AvgYears)) / sd(PlayerAverage$AvgYears), 2) # computes normalize average retirement years
+
+PlayerAverage$AvgYears_Type <- ifelse(PlayerAverage$AvgYears_z < 0, "below", "above") #above/ below avg flag
+
+PlayerAverage <- PlayerAverage[order(PlayerAverage$AvgYears_z), ] # sort
+PlayerAverage$Position <-factor(PlayerAverage$Position, levels = PlayerAverage$Position) #convert to factor to retain sorted order in plot
+
+#Diverging Dot Plot
+#Plot Average Years in NBA by Retirement Year
+
+#library(ggplot2)
+#library(lubridate)
+
+theme_set(theme_bw())
+
+NBAYears <- PlayerAverage %>% 
+  ggplot(PlayerAverage = subset(PlayerAverage,is.na.data.frame(PlayerAverage)), aes(x = Position, y = AvgYears_z, label = AvgYears_z)) +  
+  geom_point(stat = 'identity', aes(col = AvgYears_Type), size = 6) +
+  scale_color_manual(name = "Years",
+                     labels = c("Above Average", "Below Average"),
+                     values = c("above" = "#00ba38", "below" = "#f8766d")) +
+  geom_text(color = "white", size = 2) +
+  labs(title = "Diverging Dot Plot",
+       subtitle = "Normalized years of retirement from 'NBA Data'") +
+  xlab("Position") +
+  ylab("Normalized Retirement Years") +
+  ylim(-1.7,1.7) +
+  coord_flip()
+
+ggplotly(NBAYears)
+
+```

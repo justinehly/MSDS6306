@@ -1,0 +1,223 @@
+---
+title: "FLS Unit 3"
+author: "Justin Ehly"
+date: "September 5, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+fifa <- read.csv("C:/Users/justi/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 3/FIFA Players.csv")
+
+unit3q1 = fifa %>%
+  filter(Position == "LM" | Position == "LF")
+unit3q1$Position = as.character(unit3q1$Position)
+str(unit3q1$Position)
+unit3q1
+
+unique(unit3q1$Position)
+
+unit3q1 %>%
+  select(Position, Acceleration, Agility) %>%
+  ggpairs(aes(color = Position))
+
+```
+
+# R code for drawing and shading
+
+```{r}
+#' Credit: Volodymyr Orlov
+#' modified by MSDS SMU
+#' https://github.com/VolodymyrOrlov/MSDS6371/blob/master/shade.r
+#' Draws a t-distribution curve and shades rejection regions
+#' 
+#' @param df degrees of freedom.
+#' @param alpha significance level
+#' @param h0 null hypothesis value
+#' @param sides one of: both, left, right
+#' @param t_calc calculated test statistics
+#' @examples
+#' shade(49, 0.05, 0, t_calc=1.1)
+#' shade(91, 0.05, 0, t_calc=NULL, sides = 'right')
+#' shade(7, 0.05, 0, t_calc=1.5, sides = 'left')
+#' shade(7, 0.05, 0, t_calc=1.5, sides = 'both')
+
+shade <- function(df, alpha, h0 = 0, sides='both', t_calc=NULL) {
+  e_alpha = alpha
+  if(sides == 'both'){
+    e_alpha = alpha / 2
+  }
+  cv = abs(qt(e_alpha, df))
+  curve(dt(x, df), from = -4, to = 4, ylab='P(x)', xaxt='n') 
+  abline(v = 0, col = "black", lwd = 0.5)
+  labels = h0
+  at = 0
+  if(sides == 'both' | sides == 'left'){
+    x <- seq(-4, -abs(cv), len = 100) 
+    y <- dt(x, df)
+    polygon(c(x, -abs(cv)), c(y, min(y)), col = "blue", border = NA)
+    lines(c(-cv, -cv), c(0, dt(-cv, df)), col = "black", lwd = 1)
+    text(-cv - (4 - cv) / 2, 0.05, e_alpha)
+    labels = c(round(-cv, 3), labels)
+    at = c(-cv, at)
+  }
+  if(sides == 'both' | sides == 'right'){
+    x <- seq(abs(cv), 4, len = 100)
+    y <- dt(x, df)
+    polygon(c(abs(cv), x), c(min(y), y), col = "blue", border = NA)
+    lines(c(cv, cv), c(0, dt(cv, df)), col = "black", lwd = 1)
+    text(cv + (4 - cv) / 2, 0.05, e_alpha)
+    labels = c(labels, round(cv, 3))
+    at = c(at, cv)
+  }
+  if(is.numeric(t_calc)){
+    abline(v = t_calc, col = "red", lwd = 2)
+    text(t_calc + 0.5, 0.2, t_calc, col = "red")
+  }
+  axis(1, at=at, labels=labels)
+}
+#The above defines the function shade. To use it, you must call it. More examples are in the comments above.
+
+# shade <- function(df, alpha, h0 = 0, sides='both', t_calc=NULL)
+shade(14.48, 0.05, 0, t_calc=2.0126)
+
+```
+
+#T-test U3Q4 2-sample
+```{r}
+LF = fifa %>% filter(Position =="LF")
+LM = fifa %>% filter(Position =="LM")
+count(LF)
+
+t.test(x=LF$Agility, y=LM$Agility, mu = 0, conf.int = "TRUE", alternative = "two.sided")
+
+```
+
+# Histogram, Boxplots, Points of fifa dataset
+```{r}
+
+LM %>%
+  ggplot(aes(x = Agility)) +
+  geom_histogram(fill = "blue") +
+  ggtitle("Left Middlefielders") +
+  theme_bw()
+
+LF %>%
+  ggplot(aes(x = Agility)) +
+  geom_histogram(fill = "blue") +
+  ggtitle("Left Forwards") +
+  theme_bw()
+
+unit3q1 %>%
+  ggplot(aes(y = Agility)) +
+  geom_boxplot(aes(fill = Position)) +
+  ggtitle("Left Middlefielders vs Left Forwards") +
+  theme_bw()
+
+
+```
+
+# f-test for equal variance
+```{r}
+
+var.test(x = LM$Agility, y = LF$Agility, alternative = NULL , ratio = 1, conf.level = 0.95)
+
+```
+
+# cut function
+# displ_Factor = cut(mpg$displ, breaks = c(1,4,6,8), labels = c("Low", "Medium", "High"))
+# --cut cuts numerical variables are certain thresholds
+# --breaks here wer have 4 breaks and that is going to give us levels
+
+# Question 2 Select/create at least 2 categorical variables and select two continuous variables and perform an EDA.  Also, at least one of the categorical variables should be created from a continuous variable (using the cut() function).   
+
+```{r}
+fifa <- read.csv("C:/Users/justi/Google Drive/_SMU/6306/MSDS_6306_Doing-Data-Science/Unit 3/FIFA Players.csv")
+
+
+unit3q2 <- fifa
+unit3q2$Wage <- as.numeric((unit3q2$Wage))
+
+ 
+fifa %>%
+  ggplot(aes(Position, fill = Position)) +
+  geom_histogram(stat = "count") + 
+  ggtitle("Number of Players in Each Position") +
+  theme_bw()
+
+WageBreakdown <- fifa %>% filter(Position == "CM" | Position == "CB")
+WageBreakdown$Position <- as.character(WageBreakdown$Position)
+WageBreakdown$Wage <- as.numeric(WageBreakdown$Wage) 
+
+WageBreakdown %>%
+  ggplot(aes(y = Wage)) +
+  geom_boxplot() + 
+  ggtitle("Wage Breakdown") +
+  theme_bw() +
+  scale_y_continuous(breaks = seq(0, max(WageBreakdown$Wage), by = 10))
+
+summary(unit3q2$Wage)
+
+
+unit3q2$WageFactor <- cut(unit3q2$Wage, breaks = c(0,(32+56.42)/2,(56.42+84)/2,144), 
+                          labels = c("Low", "Medium", "High"))
+  
+unit3q2 <- unit3q2 %>% filter(Position == "CM" | Position == "CB")     
+
+unit3q2$Position <- as.character(unit3q2$Position)  
+
+unit3q2 %>%
+  select(Position, WageFactor, Aggression, Penalties) %>%
+  ggpairs(aes(color = Position)) +
+  ggtitle("Position, WageFactor, Aggression, Penalties")
+
+unit3q2$Aggression <- as.numeric(unit3q2$Aggression) 
+
+# Q1: CB's more aggressive than CM's
+unit3q2 %>%
+  group_by(Position) %>%
+  dplyr::summarize(median = median(Aggression))
+
+unit3q2 %>%
+  ggplot(aes(x = WageFactor, y = Aggression, color = Position)) +
+  geom_point() +
+  theme_bw() +
+  ggtitle("Aggression by WageFactor by Position")
+
+
+# Q2: what is the relationship between aggression and penalties?
+unit3q2 %>%
+  group_by(Position) %>%
+  dplyr::summarise(median = median(Penalties))
+
+# Q3: Does wage have anything to do with aggress?
+unit3q2 %>%
+  group_by(WageFactor) %>%
+  dplyr::summarise(median = median(Aggression))
+
+unit3q2 %>%
+  group_by(WageFactor, Position) %>%
+  ggplot(aes(x = Penalties, y = Aggression, color = Position)) +
+  geom_point() +
+  theme_bw() +
+  ggtitle("Aggression v Penalties")
+
+CB <- unit3q2 %>% filter(Position == "CB")
+CM <- unit3q2 %>% filter(Position == "CM")
+
+
+var.test(x = CB$Wage, y = CM$Wage, alternative = NULL, ratio = 1, conf.level = .95)
+t.test(x = CB$Wage, y = CM$Wage, mu = 0, alternative = "greater")
+
+unit3q2 %>%
+  group_by(Position) %>%
+  filter(Position == "CB" | Position == "CM") %>%
+  ggplot(aes(x = Penalties, color = Position)) +
+  geom_boxplot() +
+  theme_bw() +
+  ggtitle("Penalties by Position")
+
+
